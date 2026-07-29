@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RSSoehadi Web Viewer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- Top Floating Setting Toolbar -->
+  <header class="app-toolbar" id="appToolbar">
+    <div class="toolbar-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+        </div>
+        <span class="brand-title">RSSoehadi Viewer</span>
+      </div>
+
+      <div class="toolbar-center">
+        <!-- Quick URL Bar -->
+        <div class="input-group">
+          <input type="text" id="urlInput" class="url-input" placeholder="https://172.166.182.12/app/v2/viewer/apotek-rajal" value="https://172.166.182.12/app/v2/viewer/apotek-rajal">
+          <button id="loadBtn" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            Load URL
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-actions">
+        <!-- Exit Fullscreen Icon Button -->
+        <button id="exitFullscreenBtn" class="btn btn-danger btn-icon-only" title="Keluar Fullscreen (Esc / F11)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+          </svg>
+        </button>
+
+        <!-- Secondary Monitor Selector Dropdown -->
+        <div class="monitor-dropdown-wrapper">
+          <button id="monitorSelectBtn" class="btn btn-secondary btn-icon-text">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span id="activeMonitorLabel">Kirim ke Secondary Monitor</span>
+          </button>
+          <div id="monitorDropdownMenu" class="monitor-dropdown-menu hidden">
+            <div class="dropdown-header">Pilih Target Monitor</div>
+            <div id="monitorDropdownItems" class="dropdown-items-list">
+              <div class="dropdown-loading">Mendeteksi monitor...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toggle Collapse Setting Bar -->
+        <button id="toggleToolbarBtn" class="btn btn-icon-only btn-secondary" title="Ciutkan Toolbar">
+          <svg id="collapseIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Bar Row inside Toolbar -->
+    <div class="toolbar-subrow" id="toolbarSubrow">
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="statusText">Active: Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toggle Show Floating Controls when Toolbar Collapsed -->
+  <div id="floatingControls" class="floating-controls hidden">
+    <button id="floatingShowBtn" class="floating-btn" title="Buka Toolbar Setting">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+        </path>
+      </svg>
+    </button>
+    <button id="floatingExitFsBtn" class="floating-btn floating-btn-danger" title="Keluar Fullscreen (Esc / F11)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Web Content Area -->
+  <main class="viewer-content">
+    <iframe id="viewerFrame" src="about:blank"
+      allow="autoplay; speech-synthesis; microphone; camera; display-capture; geolocation; encrypted-media; clipboard-write; clipboard-read; web-share; speaker-selection"></iframe>
+    <div id="blankLanding" class="blank-landing">
+      <div class="loader-box">
+        <div class="spinner"></div>
+        <h2>RSSoehadi Web Viewer</h2>
+        <p>Masukkan URL pada toolbar di atas lalu klik <strong>Load URL</strong></p>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast">Configuration updated</div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

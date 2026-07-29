@@ -1,0 +1,18 @@
+# Node dependencies
+node_modules/
+
+# Tauri / Rust build output
+src-tauri/target/
+src-tauri/gen/
+
+# Logs & scratch files
+*.log
+log.txt
+scratch_log.txt
+create_icons.js
+
+# OS & IDE files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
