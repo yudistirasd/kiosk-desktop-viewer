@@ -24,22 +24,15 @@ async function safeInvoke(cmd, args = {}) {
 }
 
 // DOM Elements
-const appToolbar = document.getElementById('appToolbar');
-const toggleToolbarBtn = document.getElementById('toggleToolbarBtn');
-const floatingControls = document.getElementById('floatingControls');
-const floatingShowBtn = document.getElementById('floatingShowBtn');
-const floatingExitFsBtn = document.getElementById('floatingExitFsBtn');
-const exitFullscreenBtn = document.getElementById('exitFullscreenBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const saveAndCloseBtn = document.getElementById('saveAndCloseBtn');
+const landingOpenSettingsBtn = document.getElementById('landingOpenSettingsBtn');
+const exitFsModalBtn = document.getElementById('exitFsModalBtn');
 const urlInput = document.getElementById('urlInput');
 const loadBtn = document.getElementById('loadBtn');
 const viewerFrame = document.getElementById('viewerFrame');
 const blankLanding = document.getElementById('blankLanding');
-const monitorSelectBtn = document.getElementById('monitorSelectBtn');
-const activeMonitorLabel = document.getElementById('activeMonitorLabel');
-const monitorDropdownMenu = document.getElementById('monitorDropdownMenu');
-const monitorDropdownItems = document.getElementById('monitorDropdownItems');
-const monitorDropdownWrapper = document.querySelector('.monitor-dropdown-wrapper');
-const statusText = document.getElementById('statusText');
 const toast = document.getElementById('toast');
 
 let state = {
@@ -67,6 +60,16 @@ function formatUrl(rawUrl) {
   return url;
 }
 
+// Modal Control
+function openSettingsModal() {
+  settingsModal.classList.remove('hidden');
+  urlInput.focus();
+}
+
+function closeSettingsModal() {
+  settingsModal.classList.add('hidden');
+}
+
 // Exit Fullscreen Command
 async function handleExitFullscreen() {
   try {
@@ -76,17 +79,6 @@ async function handleExitFullscreen() {
     console.error('Error exiting fullscreen:', err);
     showToast('Gagal keluar dari Fullscreen: ' + err);
   }
-}
-
-// Toolbar Collapse / Expand
-function collapseToolbar() {
-  appToolbar.classList.add('collapsed');
-  floatingControls.classList.remove('hidden');
-}
-
-function expandToolbar() {
-  appToolbar.classList.remove('collapsed');
-  floatingControls.classList.add('hidden');
 }
 
 // Load Preserved Config
@@ -100,9 +92,11 @@ async function loadSavedConfig() {
       if (state.last_url) {
         urlInput.value = state.last_url;
         loadUrlIntoFrame(state.last_url);
-        // Automatically hide toolbar if setting/URL already exists
-        collapseToolbar();
+      } else {
+        openSettingsModal();
       }
+    } else {
+      openSettingsModal();
     }
   } catch (err) {
     console.error('Error loading config:', err);
@@ -115,6 +109,7 @@ async function saveConfig() {
     const configPayload = {
       last_url: state.last_url,
       last_monitor_index: state.last_monitor_index,
+      always_show_toolbar: false,
       window_position: null,
       window_size: null
     };
@@ -125,7 +120,7 @@ async function saveConfig() {
 }
 
 // Load URL into Viewer Frame
-function loadUrlIntoFrame(rawUrl) {
+function loadUrlIntoFrame(rawUrl, showToastMsg = false) {
   const formattedUrl = formatUrl(rawUrl);
   if (!formattedUrl) {
     showToast('Masukkan URL yang valid');
@@ -137,117 +132,75 @@ function loadUrlIntoFrame(rawUrl) {
   blankLanding.classList.add('hidden');
   
   state.last_url = formattedUrl;
-  statusText.textContent = `Active: ${formattedUrl}`;
   saveConfig();
-}
 
-// Fetch & Render Monitors in Secondary Monitor Dropdown
-async function fetchMonitors() {
-  try {
-    monitorDropdownItems.innerHTML = `<div class="dropdown-loading" style="padding:8px; font-size:0.75rem; color:var(--text-muted);">Mendeteksi monitor...</div>`;
-    const monitors = await safeInvoke('get_monitors');
-    state.monitors = monitors || [];
-
-    if (state.monitors.length === 0) {
-      monitorDropdownItems.innerHTML = `<div style="padding:8px; font-size:0.75rem; color:var(--danger);">Tidak ada monitor terdeteksi</div>`;
-      return;
-    }
-
-    monitorDropdownItems.innerHTML = '';
-    state.monitors.forEach((mon) => {
-      const isSelected = mon.index === state.last_monitor_index;
-      if (isSelected) {
-        activeMonitorLabel.textContent = `Screen [${mon.index + 1}]: ${mon.name}`;
-      }
-
-      const item = document.createElement('div');
-      item.className = `dropdown-item ${isSelected ? 'active' : ''}`;
-      
-      const badgeHtml = mon.is_primary 
-        ? '<span class="primary-badge">PRIMARY</span>' 
-        : '<span class="secondary-badge">SECONDARY</span>';
-
-      item.innerHTML = `
-        <div class="item-info">
-          <div class="item-title">
-            ${mon.name} ${badgeHtml}
-          </div>
-          <div class="item-sub">${mon.width}x${mon.height} px (pos: ${mon.x}, ${mon.y})</div>
-        </div>
-        <button class="btn btn-secondary btn-icon-only" style="font-size:0.7rem; padding:4px 8px;">
-          ${isSelected ? 'Active' : 'Kirim'}
-        </button>
-      `;
-
-      item.addEventListener('click', () => {
-        sendToMonitor(mon.index, mon.name);
-        monitorDropdownMenu.classList.add('hidden');
-      });
-
-      monitorDropdownItems.appendChild(item);
-    });
-  } catch (err) {
-    console.error('Error fetching monitors:', err);
-    monitorDropdownItems.innerHTML = `<div style="padding:8px; font-size:0.75rem; color:var(--danger);">Gagal: ${err}</div>`;
+  if (showToastMsg) {
+    showToast('URL berhasil disimpan & dimuat');
   }
 }
 
-// Send Window to Selected Monitor
-async function sendToMonitor(index, name) {
-  try {
-    await safeInvoke('move_to_monitor', { monitorIndex: index });
-    state.last_monitor_index = index;
-    activeMonitorLabel.textContent = `Screen [${index + 1}]: ${name || 'Monitor'}`;
-    showToast(`App dikirim ke Screen [${index + 1}] (${name || 'Monitor'})`);
-    await saveConfig();
-    await fetchMonitors();
-  } catch (err) {
-    console.error('Error moving to monitor:', err);
-    showToast('Gagal memindahkan monitor: ' + err);
+// Helper to Listen for Tauri Events
+function listenTauriEvent(eventName, handler) {
+  if (window.__TAURI__ && window.__TAURI__.event && typeof window.__TAURI__.event.listen === 'function') {
+    window.__TAURI__.event.listen(eventName, handler);
+  } else if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.listen === 'function') {
+    window.__TAURI_INTERNALS__.listen(eventName, handler);
   }
 }
 
-toggleToolbarBtn.addEventListener('click', collapseToolbar);
-floatingShowBtn.addEventListener('click', expandToolbar);
-exitFullscreenBtn.addEventListener('click', handleExitFullscreen);
-floatingExitFsBtn.addEventListener('click', handleExitFullscreen);
-
-// Keyboard Shortcuts: Esc or F11 to exit/toggle fullscreen
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' || e.key === 'F11') {
-    handleExitFullscreen();
-  }
+listenTauriEvent('open-url-setting', () => openSettingsModal());
+listenTauriEvent('open-settings', () => openSettingsModal());
+listenTauriEvent('display-changed', (event) => {
+  const index = typeof event.payload === 'number' ? event.payload : 0;
+  state.last_monitor_index = index;
+  saveConfig();
+  showToast(`Window dipindahkan ke Display Screen [${index + 1}]`);
 });
 
-// Monitor Dropdown Toggle
-monitorSelectBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const isHidden = monitorDropdownMenu.classList.toggle('hidden');
-  if (!isHidden) {
-    fetchMonitors();
-  }
-});
+// Event Listeners
+landingOpenSettingsBtn.addEventListener('click', openSettingsModal);
+closeSettingsBtn.addEventListener('click', closeSettingsModal);
+saveAndCloseBtn.addEventListener('click', closeSettingsModal);
+exitFsModalBtn.addEventListener('click', handleExitFullscreen);
 
-// Close Dropdown when clicking outside
-document.addEventListener('click', (e) => {
-  if (monitorDropdownWrapper && !monitorDropdownWrapper.contains(e.target)) {
-    monitorDropdownMenu.classList.add('hidden');
-  }
+loadBtn.addEventListener('click', () => {
+  loadUrlIntoFrame(urlInput.value, true);
+  closeSettingsModal();
 });
-
-// Event Listeners for URL Loading
-loadBtn.addEventListener('click', () => loadUrlIntoFrame(urlInput.value));
 
 urlInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
-    loadUrlIntoFrame(urlInput.value);
+    loadUrlIntoFrame(urlInput.value, true);
+    closeSettingsModal();
+  }
+});
+
+// Close modal when clicking outside modal-card
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) {
+    closeSettingsModal();
+  }
+});
+
+// Keyboard Shortcuts: Esc or F11 or Ctrl+S
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!settingsModal.classList.contains('hidden')) {
+      closeSettingsModal();
+    } else {
+      handleExitFullscreen();
+    }
+  } else if (e.key === 'F11') {
+    handleExitFullscreen();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault();
+    openSettingsModal();
   }
 });
 
 // Initialization
 async function init() {
   await loadSavedConfig();
-  await fetchMonitors();
 }
 
 if (document.readyState === 'loading') {

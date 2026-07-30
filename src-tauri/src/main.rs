@@ -2,7 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, PhysicalPosition, Position};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position};
 use tauri_plugin_store::StoreExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +33,7 @@ pub struct SizePayload {
 pub struct ConfigStruct {
     pub last_url: String,
     pub last_monitor_index: usize,
+    pub always_show_toolbar: Option<bool>,
     pub window_position: Option<PositionPayload>,
     pub window_size: Option<SizePayload>,
 }
@@ -161,6 +163,84 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .setup(|app| {
+            let setting_url = MenuItemBuilder::with_id("setting_url", "Setting URL...")
+                .accelerator("Ctrl+S")
+                .build(app)?;
+            let quit = MenuItemBuilder::with_id("quit", "Keluar Aplikasi")
+                .accelerator("Ctrl+Q")
+                .build(app)?;
+
+            let menu_app = SubmenuBuilder::new(app, "Aplikasi")
+                .item(&setting_url)
+                .separator()
+                .item(&quit)
+                .build()?;
+
+            let mut display_submenu_builder = SubmenuBuilder::new(app, "Display");
+
+            if let Ok(monitors) = app.available_monitors() {
+                let primary_monitor = app.primary_monitor().ok().flatten();
+                let primary_pos = primary_monitor.as_ref().map(|m| *m.position());
+
+                for (index, monitor) in monitors.into_iter().enumerate() {
+                    let is_primary = primary_pos.map_or(index == 0, |pos| pos == *monitor.position());
+                    let size = monitor.size();
+
+                    let label = format!(
+                        "Screen {} ({}) - {}x{} px",
+                        index + 1,
+                        if is_primary { "Layar Utama" } else { "Layar Sekunder" },
+                        size.width,
+                        size.height
+                    );
+                    let item_id = format!("move_display_{}", index);
+                    let menu_item = MenuItemBuilder::with_id(&item_id, &label).build(app)?;
+                    display_submenu_builder = display_submenu_builder.item(&menu_item);
+                }
+            } else {
+                let default_item = MenuItemBuilder::with_id("move_display_0", "Screen 1 (Layar Utama)").build(app)?;
+                display_submenu_builder = display_submenu_builder.item(&default_item);
+            }
+
+            let exit_fs = MenuItemBuilder::with_id("exit_fullscreen", "Keluar Fullscreen (Esc)")
+                .accelerator("Esc")
+                .build(app)?;
+
+            display_submenu_builder = display_submenu_builder.separator().item(&exit_fs);
+            let menu_display = display_submenu_builder.build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&menu_app)
+                .item(&menu_display)
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            app.on_menu_event(move |app_handle, event| {
+                let id = event.id().0.as_str();
+                if id == "setting_url" {
+                    let _ = app_handle.emit("open-url-setting", ());
+                } else if id == "exit_fullscreen" {
+                    if let Some(win) = app_handle.get_webview_window("main") {
+                        let _ = win.set_fullscreen(false);
+                    }
+                } else if id == "quit" {
+                    app_handle.exit(0);
+                } else if id.starts_with("move_display_") {
+                    if let Ok(index) = id.trim_start_matches("move_display_").parse::<usize>() {
+                        let _ = move_to_monitor(app_handle.clone(), index);
+                        let _ = app_handle.emit("display-changed", index);
+                    }
+                }
+            });
+
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.maximize();
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_monitors,
             move_to_monitor,
