@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{IconMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position};
 use tauri_plugin_store::StoreExt;
 
@@ -252,18 +252,30 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
-            let setting_url = MenuItemBuilder::with_id("setting_url", "Setting URL...")
-                .accelerator("Ctrl+S")
-                .build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Keluar Aplikasi")
                 .accelerator("Ctrl+Q")
                 .build(app)?;
 
-            let menu_app = SubmenuBuilder::new(app, "Aplikasi")
-                .item(&setting_url)
-                .separator()
-                .item(&quit)
-                .build()?;
+            let menu_setting = if let Some(icon) = app.default_window_icon() {
+                let setting_url = IconMenuItemBuilder::with_id("setting_url", "Setting URL & Profil...")
+                    .accelerator("Ctrl+S")
+                    .icon(icon.clone())
+                    .build(app)?;
+                SubmenuBuilder::new(app, "Setting")
+                    .item(&setting_url)
+                    .separator()
+                    .item(&quit)
+                    .build()?
+            } else {
+                let setting_url = MenuItemBuilder::with_id("setting_url", "Setting URL & Profil...")
+                    .accelerator("Ctrl+S")
+                    .build(app)?;
+                SubmenuBuilder::new(app, "Setting")
+                    .item(&setting_url)
+                    .separator()
+                    .item(&quit)
+                    .build()?
+            };
 
             let mut display_submenu_builder = SubmenuBuilder::new(app, "Display");
 
@@ -299,7 +311,7 @@ fn main() {
             let menu_display = display_submenu_builder.build()?;
 
             let menu = MenuBuilder::new(app)
-                .item(&menu_app)
+                .item(&menu_setting)
                 .item(&menu_display)
                 .build()?;
 

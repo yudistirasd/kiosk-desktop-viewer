@@ -15,7 +15,7 @@
 - 📺 **Dukungan Multi-Screen / Secondary Monitor**: Pindahkan tampilan Kiosk secara instan ke layar/monitor sekunder pilihan Anda melalui Window Menu.
 - ⚡ **Ringan & Performa Tinggi**: Dibuat menggunakan Tauri 2 & WebView2 native Windows, menghemat penggunaan RAM dan CPU secara signifikan dibandingkan Electron.
 - 🎯 **Native Window Menu & Dialog**:
-  - `Aplikasi` &rarr; `Setting URL...` (`Ctrl + S`): Modal kelola profil, URL, dan pembuatan shortcut.
+  - `Setting` &rarr; `Setting URL & Profil...` (`Ctrl + S`): Modal kelola profil, URL, dan pembuatan shortcut.
   - `Display` &rarr; Pilih layar tujuan secara langsung (misal: *Screen 1 (Layar Utama)*, *Screen 2 (Layar Sekunder)*).
 - 🖥️ **Mode Maximize & Fullscreen**: Otomatis tampil terbuka maksimal (*Maximized*) saat dibuka, mendukung mode borderless fullscreen.
 - 💾 **Penyimpanan Konfigurasi Otomatis**: Otomatis menyimpan URL, daftar profil, dan posisi monitor terakhir yang digunakan.
