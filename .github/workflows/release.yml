@@ -39,4 +39,4 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseId: ${{ github.event.release.id }}
-          args: --target x86_64-pc-windows-msvc
+          args: --target x86_64-pc-windows-msvc --bundles msi
