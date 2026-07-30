@@ -27,17 +27,21 @@ async function safeInvoke(cmd, args = {}) {
 const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const landingOpenSettingsBtn = document.getElementById('landingOpenSettingsBtn');
+const modeDefaultBtn = document.getElementById('modeDefaultBtn');
+const modeMultiBtn = document.getElementById('modeMultiBtn');
+const multiProfileSection = document.getElementById('multiProfileSection');
 const profileSelect = document.getElementById('profileSelect');
 const deleteProfileBtn = document.getElementById('deleteProfileBtn');
 const profileNameInput = document.getElementById('profileNameInput');
 const urlInput = document.getElementById('urlInput');
-const createShortcutBtn = document.getElementById('createShortcutBtn');
 const saveAndLoadBtn = document.getElementById('saveAndLoadBtn');
+const saveBtnText = document.getElementById('saveBtnText');
 const viewerFrame = document.getElementById('viewerFrame');
 const blankLanding = document.getElementById('blankLanding');
 const toast = document.getElementById('toast');
 
 let state = {
+  profile_mode: 'default', // 'default' | 'multi'
   last_url: '',
   last_monitor_index: 0,
   active_profile_id: '',
@@ -64,11 +68,32 @@ function formatUrl(rawUrl) {
   return url;
 }
 
+// Switch Mode (Default vs Multi)
+function setProfileMode(mode) {
+  state.profile_mode = mode;
+  if (mode === 'default') {
+    modeDefaultBtn.classList.add('active');
+    modeMultiBtn.classList.remove('active');
+    multiProfileSection.classList.add('hidden');
+    saveBtnText.textContent = 'Simpan & Tampilkan';
+  } else {
+    modeMultiBtn.classList.add('active');
+    modeDefaultBtn.classList.remove('active');
+    multiProfileSection.classList.remove('hidden');
+    saveBtnText.textContent = 'Simpan & Buat Shortcut Desktop';
+    renderProfileDropdown();
+  }
+}
+
 // Modal Control
 function openSettingsModal() {
-  renderProfileDropdown();
+  setProfileMode(state.profile_mode || 'default');
   settingsModal.classList.remove('hidden');
-  profileNameInput.focus();
+  if (state.profile_mode === 'multi') {
+    profileNameInput.focus();
+  } else {
+    urlInput.focus();
+  }
 }
 
 function closeSettingsModal() {
@@ -77,7 +102,7 @@ function closeSettingsModal() {
 
 // Render Profiles in Dropdown
 function renderProfileDropdown() {
-  profileSelect.innerHTML = '<option value="new">+ Tambah Profil Baru (Dokter / Poli Baru)</option>';
+  profileSelect.innerHTML = '<option value="new">+ Tambah Profil Baru</option>';
   
   state.profiles.forEach((p) => {
     const opt = document.createElement('option');
@@ -109,9 +134,8 @@ function handleProfileSelectChange() {
   }
 }
 
-// Save Current Profile
+// Save Current Config & Profile
 function saveCurrentProfile() {
-  const name = profileNameInput.value.trim() || 'Display Poli Kiosk';
   const rawUrl = urlInput.value.trim();
   const formattedUrl = formatUrl(rawUrl);
 
@@ -120,34 +144,43 @@ function saveCurrentProfile() {
     return null;
   }
 
-  let selectedId = profileSelect.value;
-  if (selectedId === 'new') {
-    selectedId = 'profile_' + Date.now();
-    const newProfile = {
-      id: selectedId,
-      name: name,
-      url: formattedUrl,
-      monitor_index: state.last_monitor_index
-    };
-    state.profiles.push(newProfile);
-  } else {
-    const prof = state.profiles.find((p) => p.id === selectedId);
-    if (prof) {
-      prof.name = name;
-      prof.url = formattedUrl;
-      prof.monitor_index = state.last_monitor_index;
+  if (state.profile_mode === 'multi') {
+    const name = profileNameInput.value.trim() || 'Display Kiosk';
+    let selectedId = profileSelect.value;
+
+    if (selectedId === 'new') {
+      selectedId = 'profile_' + Date.now();
+      const newProfile = {
+        id: selectedId,
+        name: name,
+        url: formattedUrl,
+        monitor_index: state.last_monitor_index
+      };
+      state.profiles.push(newProfile);
+    } else {
+      const prof = state.profiles.find((p) => p.id === selectedId);
+      if (prof) {
+        prof.name = name;
+        prof.url = formattedUrl;
+        prof.monitor_index = state.last_monitor_index;
+      }
     }
+
+    state.active_profile_id = selectedId;
+    state.last_url = formattedUrl;
+    saveConfig();
+    renderProfileDropdown();
+
+    return { id: selectedId, name: name, url: formattedUrl };
+  } else {
+    // Default mode
+    state.last_url = formattedUrl;
+    saveConfig();
+    return { id: 'default', name: 'Default', url: formattedUrl };
   }
-
-  state.active_profile_id = selectedId;
-  state.last_url = formattedUrl;
-  saveConfig();
-  renderProfileDropdown();
-
-  return { id: selectedId, name: name, url: formattedUrl };
 }
 
-// Delete Profile
+// Delete Selected Profile
 function deleteCurrentProfile() {
   const selectedId = profileSelect.value;
   if (selectedId === 'new') return;
@@ -165,6 +198,7 @@ function deleteCurrentProfile() {
 async function saveConfig() {
   try {
     const configPayload = {
+      profile_mode: state.profile_mode,
       last_url: state.last_url,
       last_monitor_index: state.last_monitor_index,
       active_profile_id: state.active_profile_id,
@@ -184,6 +218,7 @@ async function loadSavedConfig() {
   try {
     const config = await safeInvoke('load_config');
     if (config) {
+      state.profile_mode = config.profile_mode || 'default';
       state.last_url = config.last_url || '';
       state.last_monitor_index = config.last_monitor_index || 0;
       state.active_profile_id = config.active_profile_id || '';
@@ -211,23 +246,6 @@ function loadUrlIntoFrame(rawUrl, showToastMsg = false) {
 
   if (showToastMsg) {
     showToast('URL berhasil dimuat & ditampilkan');
-  }
-}
-
-// Handle Desktop Shortcut Creation
-async function handleCreateDesktopShortcut() {
-  const prof = saveCurrentProfile();
-  if (!prof) return;
-
-  try {
-    const result = await safeInvoke('create_desktop_shortcut', {
-      name: prof.name,
-      profileId: prof.id
-    });
-    showToast(result || `Shortcut "${prof.name}" dibuat di Desktop!`);
-  } catch (err) {
-    console.error('Error creating shortcut:', err);
-    showToast('Gagal membuat shortcut: ' + err);
   }
 }
 
@@ -288,27 +306,40 @@ listenTauriEvent('display-changed', (event) => {
 });
 
 // Event Listeners
+modeDefaultBtn.addEventListener('click', () => setProfileMode('default'));
+modeMultiBtn.addEventListener('click', () => setProfileMode('multi'));
 landingOpenSettingsBtn.addEventListener('click', openSettingsModal);
 closeSettingsBtn.addEventListener('click', closeSettingsModal);
 profileSelect.addEventListener('change', handleProfileSelectChange);
 deleteProfileBtn.addEventListener('click', deleteCurrentProfile);
-createShortcutBtn.addEventListener('click', handleCreateDesktopShortcut);
 
-saveAndLoadBtn.addEventListener('click', () => {
+saveAndLoadBtn.addEventListener('click', async () => {
   const prof = saveCurrentProfile();
   if (prof) {
-    loadUrlIntoFrame(prof.url, true);
+    loadUrlIntoFrame(prof.url, false);
+    
+    if (state.profile_mode === 'multi') {
+      try {
+        const result = await safeInvoke('create_desktop_shortcut', {
+          name: prof.name,
+          profileId: prof.id
+        });
+        showToast(result || `Profil "${prof.name}" disimpan, URL dimuat & Shortcut dibuat!`);
+      } catch (err) {
+        console.error('Error creating shortcut:', err);
+        showToast(`Profil "${prof.name}" disimpan & URL dimuat (Gagal buat shortcut: ${err})`);
+      }
+    } else {
+      showToast('URL berhasil disimpan & dimuat');
+    }
+
     closeSettingsModal();
   }
 });
 
 urlInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
-    const prof = saveCurrentProfile();
-    if (prof) {
-      loadUrlIntoFrame(prof.url, true);
-      closeSettingsModal();
-    }
+    saveAndLoadBtn.click();
   }
 });
 

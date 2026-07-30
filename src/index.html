@@ -42,61 +42,75 @@
               <line x1="12" y1="17" x2="12" y2="21"></line>
             </svg>
           </div>
-          <h3>Setting URL Kiosk Webview</h3>
+          <h3>Setting Kiosk Webview</h3>
         </div>
         <button id="closeSettingsBtn" class="close-btn" title="Tutup Modal">&times;</button>
       </div>
 
       <div class="modal-body">
-        <!-- Preset / Profile Selector -->
+        <!-- Mode Switcher -->
         <div class="setting-group">
-          <label for="profileSelect" class="setting-label">Pilih Profil Kiosk</label>
-          <div class="profile-selector-group">
-            <select id="profileSelect" class="url-input">
-              <option value="new">+ Tambah Profil Baru (Dokter / Poli Baru)</option>
-            </select>
-            <button id="deleteProfileBtn" class="btn btn-danger hidden" title="Hapus Profil Terpilih">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
+          <label class="setting-label">Mode Pengaturan Profil</label>
+          <div class="mode-switcher-segmented">
+            <button id="modeDefaultBtn" class="segmented-btn active" type="button">Default (Tunggal)</button>
+            <button id="modeMultiBtn" class="segmented-btn" type="button">Multi Profile</button>
           </div>
         </div>
 
-        <!-- Profile Name Input -->
-        <div class="setting-group margin-top-sm">
-          <label for="profileNameInput" class="setting-label">Nama Profil / Kiosk</label>
-          <input type="text" id="profileNameInput" class="url-input" placeholder="Contoh: Poli Dokter Agus">
+        <!-- Multi Profile Section (Shown only in Multi Profile mode) -->
+        <div id="multiProfileSection" class="multi-profile-section hidden">
+          <div class="setting-group margin-top-sm">
+            <label for="profileSelect" class="setting-label">Pilih Profil Kiosk</label>
+            <div class="profile-selector-group">
+              <select id="profileSelect" class="url-input">
+                <option value="new">+ Tambah Profil Baru</option>
+              </select>
+              <button id="deleteProfileBtn" class="btn btn-danger hidden" type="button" title="Hapus Profil Terpilih">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-group margin-top-sm">
+            <label for="profileNameInput" class="setting-label">Nama Profil / Kiosk</label>
+            <input type="text" id="profileNameInput" class="url-input" placeholder="Contoh: Display Utama / Kiosk 1">
+          </div>
         </div>
 
         <!-- Target URL Input -->
         <div class="setting-group margin-top-sm">
-          <label for="urlInput" class="setting-label">Alamat URL Target</label>
+          <label for="urlInput" class="setting-label">Alamat URL Target Webview</label>
           <input type="text" id="urlInput" class="url-input" placeholder="https://example.com/kiosk/display" value="">
+        </div>
+
+        <!-- Guide Box -->
+        <div class="guide-box margin-top-md">
+          <div class="guide-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span>Panduan Singkat Penggunaan</span>
+          </div>
+          <ul class="guide-list">
+            <li><strong>Mode Default:</strong> Menyimpan 1 URL utama untuk aplikasi secara umum.</li>
+            <li><strong>Mode Multi Profile:</strong> Digunakan untuk menyimpan beberapa profil berbeda dan membuat file <code>.lnk</code> (Shortcut Desktop) khusus per profil.</li>
+            <li><strong>Shortcut Keyboard:</strong> Tekan <kbd>Ctrl+S</kbd> untuk buka Setting, <kbd>Esc</kbd> untuk keluar Fullscreen.</li>
+          </ul>
         </div>
       </div>
 
       <div class="modal-footer">
-        <div class="footer-actions-left">
-          <button id="createShortcutBtn" class="btn btn-secondary btn-icon-text" title="Buat Shortcut (.lnk) di Desktop Windows">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <line x1="10" y1="14" x2="21" y2="3"></line>
-            </svg>
-            Buat Shortcut Desktop
-          </button>
-        </div>
-
-        <div class="footer-actions-right">
-          <button id="saveAndLoadBtn" class="btn btn-primary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-            Simpan & Tampilkan
-          </button>
-        </div>
+        <button id="saveAndLoadBtn" class="btn btn-primary btn-full-width" type="button">
+          <svg id="saveBtnIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+          <span id="saveBtnText">Simpan & Tampilkan</span>
+        </button>
       </div>
     </div>
   </div>

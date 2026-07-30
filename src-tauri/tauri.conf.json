@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "kiosk-desktop-viewer",
+  "productName": "Kiosk Desktop Viewer",
   "version": "0.1.0",
   "identifier": "com.kiosk.desktopviewer",
   "build": {

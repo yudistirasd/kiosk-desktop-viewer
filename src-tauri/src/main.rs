@@ -98,12 +98,11 @@ fn create_desktop_shortcut(name: String, profile_id: String) -> Result<String, S
         };
 
         let ps_script = format!(
-            "$WScriptShell = New-Object -ComObject WScript.Shell; \
-             $desktop = [System.Environment]::GetFolderPath('Desktop'); \
-             $shortcut = $WScriptShell.CreateShortcut(\"$desktop\\{}.lnk\"); \
-             $shortcut.TargetPath = \"{}\"; \
-             $shortcut.Arguments = \"--profile `\"{}\"`\"; \
-             $shortcut.Save()",
+            "$desktop = [System.Environment]::GetFolderPath('Desktop'); \
+             $s = (New-Object -ComObject WScript.Shell).CreateShortcut(\"$desktop\\{}.lnk\"); \
+             $s.TargetPath = '{}'; \
+             $s.Arguments = '--profile ' + [char]34 + '{}' + [char]34; \
+             $s.Save()",
             clean_name, exe_path, profile_id
         );
 
