@@ -101,9 +101,10 @@ fn create_desktop_shortcut(name: String, profile_id: String) -> Result<String, S
             "$desktop = [System.Environment]::GetFolderPath('Desktop'); \
              $s = (New-Object -ComObject WScript.Shell).CreateShortcut(\"$desktop\\{}.lnk\"); \
              $s.TargetPath = '{}'; \
+             $s.IconLocation = '{},0'; \
              $s.Arguments = '--profile ' + [char]34 + '{}' + [char]34; \
              $s.Save()",
-            clean_name, exe_path, profile_id
+            clean_name, exe_path, exe_path, profile_id
         );
 
         let output = Command::new("powershell")
