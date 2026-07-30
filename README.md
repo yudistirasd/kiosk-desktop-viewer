@@ -61,7 +61,7 @@
 
 ```bash
 # Clone repositori
-git clone https://github.com/username/kiosk-desktop-viewer.git
+git clone https://github.com/yudistirasd/kiosk-desktop-viewer.git
 cd kiosk-desktop-viewer
 
 # Install dependensi
@@ -89,6 +89,13 @@ Repositori ini telah dilengkapi dengan CI/CD otomatis (`.github/workflows/releas
 1. GitHub Actions akan otomatis melakukan kompilasi aplikasi di runner Windows.
 2. Membangun installer **`.msi`**.
 3. Mengunggah file `.msi` secara otomatis ke halaman Release GitHub.
+
+---
+
+## 👤 Author
+
+**Yudistira**
+- GitHub: [@yudistirasd](https://github.com/yudistirasd)
 
 ---
 
