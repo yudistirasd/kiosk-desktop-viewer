@@ -48,29 +48,55 @@
       </div>
 
       <div class="modal-body">
-        <!-- URL Input Section -->
+        <!-- Preset / Profile Selector -->
         <div class="setting-group">
-          <label for="urlInput" class="setting-label">Alamat URL Target</label>
-          <div class="input-group">
-            <input type="text" id="urlInput" class="url-input" placeholder="https://example.com/kiosk/display" value="">
-            <button id="loadBtn" class="btn btn-primary">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6"></polyline>
+          <label for="profileSelect" class="setting-label">Pilih Profil Kiosk</label>
+          <div class="profile-selector-group">
+            <select id="profileSelect" class="url-input">
+              <option value="new">+ Tambah Profil Baru (Dokter / Poli Baru)</option>
+            </select>
+            <button id="deleteProfileBtn" class="btn btn-danger hidden" title="Hapus Profil Terpilih">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
               </svg>
-              Simpan & Load
             </button>
           </div>
+        </div>
+
+        <!-- Profile Name Input -->
+        <div class="setting-group margin-top-sm">
+          <label for="profileNameInput" class="setting-label">Nama Profil / Kiosk</label>
+          <input type="text" id="profileNameInput" class="url-input" placeholder="Contoh: Poli Dokter Agus">
+        </div>
+
+        <!-- Target URL Input -->
+        <div class="setting-group margin-top-sm">
+          <label for="urlInput" class="setting-label">Alamat URL Target</label>
+          <input type="text" id="urlInput" class="url-input" placeholder="https://example.com/kiosk/display" value="">
         </div>
       </div>
 
       <div class="modal-footer">
-        <button id="exitFsModalBtn" class="btn btn-danger">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
-          </svg>
-          Keluar Fullscreen
-        </button>
-        <button id="saveAndCloseBtn" class="btn btn-primary">Batal</button>
+        <div class="footer-actions-left">
+          <button id="createShortcutBtn" class="btn btn-secondary btn-icon-text" title="Buat Shortcut (.lnk) di Desktop Windows">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Buat Shortcut Desktop
+          </button>
+        </div>
+
+        <div class="footer-actions-right">
+          <button id="saveAndLoadBtn" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            Simpan & Tampilkan
+          </button>
+        </div>
       </div>
     </div>
   </div>

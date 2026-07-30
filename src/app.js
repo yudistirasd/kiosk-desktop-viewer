@@ -26,11 +26,13 @@ async function safeInvoke(cmd, args = {}) {
 // DOM Elements
 const settingsModal = document.getElementById('settingsModal');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-const saveAndCloseBtn = document.getElementById('saveAndCloseBtn');
 const landingOpenSettingsBtn = document.getElementById('landingOpenSettingsBtn');
-const exitFsModalBtn = document.getElementById('exitFsModalBtn');
+const profileSelect = document.getElementById('profileSelect');
+const deleteProfileBtn = document.getElementById('deleteProfileBtn');
+const profileNameInput = document.getElementById('profileNameInput');
 const urlInput = document.getElementById('urlInput');
-const loadBtn = document.getElementById('loadBtn');
+const createShortcutBtn = document.getElementById('createShortcutBtn');
+const saveAndLoadBtn = document.getElementById('saveAndLoadBtn');
 const viewerFrame = document.getElementById('viewerFrame');
 const blankLanding = document.getElementById('blankLanding');
 const toast = document.getElementById('toast');
@@ -38,6 +40,8 @@ const toast = document.getElementById('toast');
 let state = {
   last_url: '',
   last_monitor_index: 0,
+  active_profile_id: '',
+  profiles: [],
   monitors: []
 };
 
@@ -47,7 +51,7 @@ function showToast(message) {
   toast.classList.add('show');
   setTimeout(() => {
     toast.classList.remove('show');
-  }, 3000);
+  }, 3500);
 }
 
 // URL Validation and Formatting
@@ -62,53 +66,109 @@ function formatUrl(rawUrl) {
 
 // Modal Control
 function openSettingsModal() {
+  renderProfileDropdown();
   settingsModal.classList.remove('hidden');
-  urlInput.focus();
+  profileNameInput.focus();
 }
 
 function closeSettingsModal() {
   settingsModal.classList.add('hidden');
 }
 
-// Exit Fullscreen Command
-async function handleExitFullscreen() {
-  try {
-    await safeInvoke('exit_fullscreen');
-    showToast('Keluar dari mode Fullscreen');
-  } catch (err) {
-    console.error('Error exiting fullscreen:', err);
-    showToast('Gagal keluar dari Fullscreen: ' + err);
-  }
-}
-
-// Load Preserved Config
-async function loadSavedConfig() {
-  try {
-    const config = await safeInvoke('load_config');
-    if (config) {
-      state.last_url = config.last_url || '';
-      state.last_monitor_index = config.last_monitor_index || 0;
-
-      if (state.last_url) {
-        urlInput.value = state.last_url;
-        loadUrlIntoFrame(state.last_url);
-      } else {
-        openSettingsModal();
-      }
-    } else {
-      openSettingsModal();
+// Render Profiles in Dropdown
+function renderProfileDropdown() {
+  profileSelect.innerHTML = '<option value="new">+ Tambah Profil Baru (Dokter / Poli Baru)</option>';
+  
+  state.profiles.forEach((p) => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.name} (${p.url})`;
+    if (p.id === state.active_profile_id) {
+      opt.selected = true;
     }
-  } catch (err) {
-    console.error('Error loading config:', err);
+    profileSelect.appendChild(opt);
+  });
+
+  handleProfileSelectChange();
+}
+
+// Handle Profile Dropdown Change
+function handleProfileSelectChange() {
+  const selectedId = profileSelect.value;
+  if (selectedId === 'new') {
+    profileNameInput.value = '';
+    urlInput.value = state.last_url || '';
+    deleteProfileBtn.classList.add('hidden');
+  } else {
+    const prof = state.profiles.find((p) => p.id === selectedId);
+    if (prof) {
+      profileNameInput.value = prof.name;
+      urlInput.value = prof.url;
+      deleteProfileBtn.classList.remove('hidden');
+    }
   }
 }
 
-// Save Config
+// Save Current Profile
+function saveCurrentProfile() {
+  const name = profileNameInput.value.trim() || 'Display Poli Kiosk';
+  const rawUrl = urlInput.value.trim();
+  const formattedUrl = formatUrl(rawUrl);
+
+  if (!formattedUrl) {
+    showToast('Masukkan URL yang valid');
+    return null;
+  }
+
+  let selectedId = profileSelect.value;
+  if (selectedId === 'new') {
+    selectedId = 'profile_' + Date.now();
+    const newProfile = {
+      id: selectedId,
+      name: name,
+      url: formattedUrl,
+      monitor_index: state.last_monitor_index
+    };
+    state.profiles.push(newProfile);
+  } else {
+    const prof = state.profiles.find((p) => p.id === selectedId);
+    if (prof) {
+      prof.name = name;
+      prof.url = formattedUrl;
+      prof.monitor_index = state.last_monitor_index;
+    }
+  }
+
+  state.active_profile_id = selectedId;
+  state.last_url = formattedUrl;
+  saveConfig();
+  renderProfileDropdown();
+
+  return { id: selectedId, name: name, url: formattedUrl };
+}
+
+// Delete Profile
+function deleteCurrentProfile() {
+  const selectedId = profileSelect.value;
+  if (selectedId === 'new') return;
+
+  state.profiles = state.profiles.filter((p) => p.id !== selectedId);
+  if (state.active_profile_id === selectedId) {
+    state.active_profile_id = '';
+  }
+  saveConfig();
+  renderProfileDropdown();
+  showToast('Profil berhasil dihapus');
+}
+
+// Save Config to Store
 async function saveConfig() {
   try {
     const configPayload = {
       last_url: state.last_url,
       last_monitor_index: state.last_monitor_index,
+      active_profile_id: state.active_profile_id,
+      profiles: state.profiles,
       always_show_toolbar: false,
       window_position: null,
       window_size: null
@@ -116,6 +176,21 @@ async function saveConfig() {
     await safeInvoke('save_config', { config: configPayload });
   } catch (err) {
     console.error('Error saving config:', err);
+  }
+}
+
+// Load Saved Config
+async function loadSavedConfig() {
+  try {
+    const config = await safeInvoke('load_config');
+    if (config) {
+      state.last_url = config.last_url || '';
+      state.last_monitor_index = config.last_monitor_index || 0;
+      state.active_profile_id = config.active_profile_id || '';
+      state.profiles = config.profiles || [];
+    }
+  } catch (err) {
+    console.error('Error loading config:', err);
   }
 }
 
@@ -135,8 +210,63 @@ function loadUrlIntoFrame(rawUrl, showToastMsg = false) {
   saveConfig();
 
   if (showToastMsg) {
-    showToast('URL berhasil disimpan & dimuat');
+    showToast('URL berhasil dimuat & ditampilkan');
   }
+}
+
+// Handle Desktop Shortcut Creation
+async function handleCreateDesktopShortcut() {
+  const prof = saveCurrentProfile();
+  if (!prof) return;
+
+  try {
+    const result = await safeInvoke('create_desktop_shortcut', {
+      name: prof.name,
+      profileId: prof.id
+    });
+    showToast(result || `Shortcut "${prof.name}" dibuat di Desktop!`);
+  } catch (err) {
+    console.error('Error creating shortcut:', err);
+    showToast('Gagal membuat shortcut: ' + err);
+  }
+}
+
+// Handle Startup CLI Arguments (when launched from Desktop Shortcut)
+async function handleCliArgumentsOnStartup() {
+  try {
+    const args = await safeInvoke('get_cli_args');
+    if (args) {
+      if (args.profile) {
+        const prof = state.profiles.find(
+          (p) => p.id === args.profile || p.name.toLowerCase() === args.profile.toLowerCase()
+        );
+        if (prof) {
+          state.active_profile_id = prof.id;
+          state.last_url = prof.url;
+          if (prof.monitor_index !== undefined) {
+            state.last_monitor_index = prof.monitor_index;
+            await safeInvoke('move_to_monitor', { monitorIndex: prof.monitor_index });
+          }
+          loadUrlIntoFrame(prof.url);
+          showToast(`Mode Kiosk: Profil "${prof.name}" diaktifkan`);
+          return true;
+        }
+      }
+
+      if (args.url) {
+        if (args.monitor !== undefined && args.monitor !== null) {
+          state.last_monitor_index = args.monitor;
+          await safeInvoke('move_to_monitor', { monitorIndex: args.monitor });
+        }
+        loadUrlIntoFrame(args.url);
+        showToast(`Mode Kiosk: Memuat URL dari shortcut`);
+        return true;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading CLI args:', err);
+  }
+  return false;
 }
 
 // Helper to Listen for Tauri Events
@@ -160,18 +290,25 @@ listenTauriEvent('display-changed', (event) => {
 // Event Listeners
 landingOpenSettingsBtn.addEventListener('click', openSettingsModal);
 closeSettingsBtn.addEventListener('click', closeSettingsModal);
-saveAndCloseBtn.addEventListener('click', closeSettingsModal);
-exitFsModalBtn.addEventListener('click', handleExitFullscreen);
+profileSelect.addEventListener('change', handleProfileSelectChange);
+deleteProfileBtn.addEventListener('click', deleteCurrentProfile);
+createShortcutBtn.addEventListener('click', handleCreateDesktopShortcut);
 
-loadBtn.addEventListener('click', () => {
-  loadUrlIntoFrame(urlInput.value, true);
-  closeSettingsModal();
+saveAndLoadBtn.addEventListener('click', () => {
+  const prof = saveCurrentProfile();
+  if (prof) {
+    loadUrlIntoFrame(prof.url, true);
+    closeSettingsModal();
+  }
 });
 
 urlInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
-    loadUrlIntoFrame(urlInput.value, true);
-    closeSettingsModal();
+    const prof = saveCurrentProfile();
+    if (prof) {
+      loadUrlIntoFrame(prof.url, true);
+      closeSettingsModal();
+    }
   }
 });
 
@@ -188,10 +325,10 @@ document.addEventListener('keydown', (e) => {
     if (!settingsModal.classList.contains('hidden')) {
       closeSettingsModal();
     } else {
-      handleExitFullscreen();
+      safeInvoke('exit_fullscreen');
     }
   } else if (e.key === 'F11') {
-    handleExitFullscreen();
+    safeInvoke('toggle_fullscreen');
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();
     openSettingsModal();
@@ -201,6 +338,15 @@ document.addEventListener('keydown', (e) => {
 // Initialization
 async function init() {
   await loadSavedConfig();
+  const launchedViaShortcut = await handleCliArgumentsOnStartup();
+  
+  if (!launchedViaShortcut) {
+    if (state.last_url) {
+      loadUrlIntoFrame(state.last_url);
+    } else {
+      openSettingsModal();
+    }
+  }
 }
 
 if (document.readyState === 'loading') {

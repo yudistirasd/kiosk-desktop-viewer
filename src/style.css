@@ -359,6 +359,19 @@ body {
   font-weight: 700;
 }
 
+.profile-selector-group {
+  display: flex;
+  gap: 8px;
+}
+
+.margin-top-sm {
+  margin-top: 12px;
+}
+
+.hidden {
+  display: none !important;
+}
+
 .modal-footer {
   padding: 14px 20px;
   border-top: 1px solid var(--border-color);
@@ -366,6 +379,13 @@ body {
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.02);
+  gap: 12px;
+}
+
+.footer-actions-left, .footer-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Toast Notification */

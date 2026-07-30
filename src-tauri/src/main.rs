@@ -30,12 +30,100 @@ pub struct SizePayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KioskProfile {
+    pub id: String,
+    pub name: String,
+    pub url: String,
+    pub monitor_index: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigStruct {
     pub last_url: String,
     pub last_monitor_index: usize,
+    pub active_profile_id: Option<String>,
+    pub profiles: Option<Vec<KioskProfile>>,
     pub always_show_toolbar: Option<bool>,
     pub window_position: Option<PositionPayload>,
     pub window_size: Option<SizePayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CliArgsPayload {
+    pub profile: Option<String>,
+    pub url: Option<String>,
+    pub monitor: Option<usize>,
+}
+
+#[tauri::command]
+fn get_cli_args() -> Result<CliArgsPayload, String> {
+    let args: Vec<String> = std::env::args().collect();
+    let mut profile = None;
+    let mut url = None;
+    let mut monitor = None;
+
+    let mut i = 1;
+    while i < args.len() {
+        if args[i] == "--profile" && i + 1 < args.len() {
+            profile = Some(args[i + 1].clone());
+            i += 2;
+        } else if args[i] == "--url" && i + 1 < args.len() {
+            url = Some(args[i + 1].clone());
+            i += 2;
+        } else if args[i] == "--monitor" && i + 1 < args.len() {
+            monitor = args[i + 1].parse::<usize>().ok();
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+
+    Ok(CliArgsPayload { profile, url, monitor })
+}
+
+#[tauri::command]
+fn create_desktop_shortcut(name: String, profile_id: String) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+
+        let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let exe_path = current_exe.to_str().ok_or("Invalid exe path")?;
+
+        let safe_name = name.replace(|c: char| !c.is_alphanumeric() && c != ' ' && c != '-' && c != '_', "");
+        let clean_name = if safe_name.trim().is_empty() {
+            "Kiosk Display".to_string()
+        } else {
+            safe_name.trim().to_string()
+        };
+
+        let ps_script = format!(
+            "$WScriptShell = New-Object -ComObject WScript.Shell; \
+             $desktop = [System.Environment]::GetFolderPath('Desktop'); \
+             $shortcut = $WScriptShell.CreateShortcut(\"$desktop\\{}.lnk\"); \
+             $shortcut.TargetPath = \"{}\"; \
+             $shortcut.Arguments = \"--profile `\"{}\"`\"; \
+             $shortcut.Save()",
+            clean_name, exe_path, profile_id
+        );
+
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
+            .output()
+            .map_err(|e| format!("Gagal memanggil PowerShell: {}", e))?;
+
+        if output.status.success() {
+            Ok(format!("Shortcut \"{}\" berhasil dibuat di Desktop!", clean_name))
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Gagal membuat shortcut: {}", stderr))
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Pembuatan shortcut desktop hanya didukung pada OS Windows".to_string())
+    }
 }
 
 #[tauri::command]
@@ -247,7 +335,9 @@ fn main() {
             exit_fullscreen,
             toggle_fullscreen,
             save_config,
-            load_config
+            load_config,
+            get_cli_args,
+            create_desktop_shortcut
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

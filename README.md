@@ -10,14 +10,16 @@
 
 ## ✨ Fitur Utama
 
+- 🗂️ **Preset / Profile Manager**: Simpan banyak profil display (contoh: *Poli Dokter Agus*, *Poli Dokter Budi*, *Display Apotek*) dengan nama dan URL masing-masing.
+- 🔗 **Generator Shortcut Desktop (.lnk)**: Buat file shortcut spesifik di Desktop Windows untuk masing-masing profil/dokter hanya dengan 1 klik tombol!
 - 📺 **Dukungan Multi-Screen / Secondary Monitor**: Pindahkan tampilan Kiosk secara instan ke layar/monitor sekunder pilihan Anda melalui Window Menu.
 - ⚡ **Ringan & Performa Tinggi**: Dibuat menggunakan Tauri 2 & WebView2 native Windows, menghemat penggunaan RAM dan CPU secara signifikan dibandingkan Electron.
 - 🎯 **Native Window Menu & Dialog**:
-  - `Aplikasi` &rarr; `Setting URL...` (`Ctrl + S`): Modal ringkas untuk mengatur dan memuat alamat URL webview.
+  - `Aplikasi` &rarr; `Setting URL...` (`Ctrl + S`): Modal kelola profil, URL, dan pembuatan shortcut.
   - `Display` &rarr; Pilih layar tujuan secara langsung (misal: *Screen 1 (Layar Utama)*, *Screen 2 (Layar Sekunder)*).
 - 🖥️ **Mode Maximize & Fullscreen**: Otomatis tampil terbuka maksimal (*Maximized*) saat dibuka, mendukung mode borderless fullscreen.
-- 💾 **Penyimpanan Konfigurasi Otomatis**: Otomatis menyimpan URL dan posisi monitor terakhir yang digunakan.
-- 🔒 **Bypass Self-Signed SSL Certificate**: Mendukung akses ke IP internal/HTTPS lokal tanpa terhalang peringatan sertifikat SSL (cocok untuk server antrian/apotek/RS/intranet).
+- 💾 **Penyimpanan Konfigurasi Otomatis**: Otomatis menyimpan URL, daftar profil, dan posisi monitor terakhir yang digunakan.
+- 🔒 **Bypass Self-Signed SSL Certificate**: Mendukung akses ke IP internal/HTTPS lokal tanpa terhalang peringatan sertifikat SSL.
 - 📦 **Installer `.msi` Otomatis**: Installer bawaan Windows yang secara otomatis membuat **Desktop Shortcut Icon** dan menu di Start Menu.
 
 ---
