@@ -1,9 +1,11 @@
 name: Release Build (Windows)
 
-# Jalan otomatis saat kamu membuat GitHub Release baru
 on:
   release:
-    types: [created]
+    types: [published, created]
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build-windows:
