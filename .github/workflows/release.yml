@@ -39,6 +39,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseId: ${{ github.event.release.id }}
+          tagName: v__VERSION__
+          releaseName: 'Kiosk Desktop Viewer v__VERSION__'
+          releaseBody: 'Release otomatis Kiosk Desktop Viewer v__VERSION__ (Installer .msi Windows).'
+          releaseDraft: false
+          prerelease: false
           args: --target x86_64-pc-windows-msvc --bundles msi
