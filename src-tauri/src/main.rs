@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::{IconMenuItemBuilder, MenuBuilder, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position};
 use tauri_plugin_store::StoreExt;
+use tauri_plugin_updater::UpdaterExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonitorInfo {
@@ -27,6 +28,21 @@ pub struct PositionPayload {
 pub struct SizePayload {
     pub width: u32,
     pub height: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateInfo {
+    pub should_update: bool,
+    pub current_version: String,
+    pub version: Option<String>,
+    pub date: Option<String>,
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateProgressPayload {
+    pub chunk_length: usize,
+    pub content_length: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -266,6 +282,75 @@ fn update_menu_profile_name(app: AppHandle, profile_name: Option<String>) -> Res
     Ok(())
 }
 
+#[tauri::command]
+fn get_app_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
+#[tauri::command]
+async fn check_for_updates(app: AppHandle) -> Result<UpdateInfo, String> {
+    let current_version = app.package_info().version.to_string();
+    let updater = match app.updater() {
+        Ok(u) => u,
+        Err(e) => {
+            return Ok(UpdateInfo {
+                should_update: false,
+                current_version,
+                version: None,
+                date: None,
+                body: Some(format!("Updater belum terkonfigurasi: {}", e)),
+            });
+        }
+    };
+
+    match updater.check().await {
+        Ok(Some(update)) => Ok(UpdateInfo {
+            should_update: true,
+            current_version,
+            version: Some(update.version),
+            date: update.date.map(|d| d.to_string()),
+            body: update.body,
+        }),
+        Ok(None) => Ok(UpdateInfo {
+            should_update: false,
+            current_version,
+            version: None,
+            date: None,
+            body: None,
+        }),
+        Err(e) => Err(format!("Gagal memeriksa pembaruan: {}", e)),
+    }
+}
+
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| format!("Gagal memeriksa pembaruan: {}", e))?
+        .ok_or_else(|| "Tidak ada pembaruan yang tersedia".to_string())?;
+
+    let app_clone = app.clone();
+    update
+        .download_and_install(
+            move |chunk_length, content_length| {
+                let _ = app_clone.emit(
+                    "update-download-progress",
+                    UpdateProgressPayload {
+                        chunk_length,
+                        content_length,
+                    },
+                );
+            },
+            || {},
+        )
+        .await
+        .map_err(|e| format!("Gagal memasang update: {}", e))?;
+
+    app.restart();
+}
+
 fn main() {
     // Bypass WebView2 SSL Certificate Errors for Self-Signed HTTPS IP Addresses
     std::env::set_var(
@@ -275,6 +360,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let args: Vec<String> = std::env::args().collect();
             let mut shortcut_profile_id = None;
@@ -306,6 +392,9 @@ fn main() {
                 .accelerator("Ctrl+Q")
                 .build(app)?;
 
+            let check_update_item = MenuItemBuilder::with_id("check_update", "Periksa Pembaruan...")
+                .build(app)?;
+
             let menu_setting = if let Some(icon) = app.default_window_icon() {
                 let setting_url = IconMenuItemBuilder::with_id("setting_url", &initial_setting_title)
                     .accelerator("Ctrl+S")
@@ -313,6 +402,8 @@ fn main() {
                     .build(app)?;
                 SubmenuBuilder::new(app, "Setting")
                     .item(&setting_url)
+                    .separator()
+                    .item(&check_update_item)
                     .separator()
                     .item(&quit)
                     .build()?
@@ -322,6 +413,8 @@ fn main() {
                     .build(app)?;
                 SubmenuBuilder::new(app, "Setting")
                     .item(&setting_url)
+                    .separator()
+                    .item(&check_update_item)
                     .separator()
                     .item(&quit)
                     .build()?
@@ -371,6 +464,8 @@ fn main() {
                 let id = event.id().0.as_str();
                 if id == "setting_url" {
                     let _ = app_handle.emit("open-url-setting", ());
+                } else if id == "check_update" {
+                    let _ = app_handle.emit("open-updater-check", ());
                 } else if id == "exit_fullscreen" {
                     if let Some(win) = app_handle.get_webview_window("main") {
                         let _ = win.set_fullscreen(false);
@@ -400,7 +495,10 @@ fn main() {
             load_config,
             get_cli_args,
             create_desktop_shortcut,
-            update_menu_profile_name
+            update_menu_profile_name,
+            get_app_version,
+            check_for_updates,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

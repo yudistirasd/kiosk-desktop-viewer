@@ -52,6 +52,32 @@ const viewerFrame = document.getElementById('viewerFrame');
 const blankLanding = document.getElementById('blankLanding');
 const toast = document.getElementById('toast');
 
+// Updater DOM Elements
+const updateModal = document.getElementById('updateModal');
+const closeUpdateModalBtn = document.getElementById('closeUpdateModalBtn');
+const cancelUpdateBtn = document.getElementById('cancelUpdateBtn');
+const startInstallUpdateBtn = document.getElementById('startInstallUpdateBtn');
+const startInstallUpdateText = document.getElementById('startInstallUpdateText');
+const updateCheckingBox = document.getElementById('updateCheckingBox');
+const updateUpToDateBox = document.getElementById('updateUpToDateBox');
+const currentVersionUpToDate = document.getElementById('currentVersionUpToDate');
+const updateAvailableBox = document.getElementById('updateAvailableBox');
+const updateCurrentVerText = document.getElementById('updateCurrentVerText');
+const updateNewVerText = document.getElementById('updateNewVerText');
+const updateNotesContent = document.getElementById('updateNotesContent');
+const updateProgressSection = document.getElementById('updateProgressSection');
+const updateProgressStatusText = document.getElementById('updateProgressStatusText');
+const updateProgressPercentText = document.getElementById('updateProgressPercentText');
+const updateProgressBarFill = document.getElementById('updateProgressBarFill');
+const updateProgressBytesText = document.getElementById('updateProgressBytesText');
+const updateErrorBox = document.getElementById('updateErrorBox');
+const updateErrorText = document.getElementById('updateErrorText');
+const openCheckUpdateBtn = document.getElementById('openCheckUpdateBtn');
+const currentVersionLabel = document.getElementById('currentVersionLabel');
+
+let downloadedBytes = 0;
+let totalBytes = 0;
+
 let state = {
   profile_mode: 'default', // 'default' | 'multi'
   is_shortcut_session: false,
@@ -553,17 +579,152 @@ urlInput.addEventListener('keypress', (e) => {
   }
 });
 
-// Close modal when clicking outside modal-card
+// Update UI Helper States
+function showUpdateState(stateName, errMsg = '') {
+  updateCheckingBox.classList.add('hidden');
+  updateUpToDateBox.classList.add('hidden');
+  updateAvailableBox.classList.add('hidden');
+  updateErrorBox.classList.add('hidden');
+  startInstallUpdateBtn.classList.add('hidden');
+
+  if (stateName === 'checking') {
+    updateCheckingBox.classList.remove('hidden');
+  } else if (stateName === 'uptodate') {
+    updateUpToDateBox.classList.remove('hidden');
+  } else if (stateName === 'available') {
+    updateAvailableBox.classList.remove('hidden');
+    startInstallUpdateBtn.classList.remove('hidden');
+    updateProgressSection.classList.add('hidden');
+    startInstallUpdateBtn.disabled = false;
+    startInstallUpdateText.textContent = 'Unduh & Pasang Sekarang';
+  } else if (stateName === 'error') {
+    updateErrorBox.classList.remove('hidden');
+    updateErrorText.textContent = errMsg || 'Terjadi kesalahan saat memeriksa pembaruan.';
+  }
+}
+
+function openUpdateModal() {
+  updateModal.classList.remove('hidden');
+}
+
+function closeUpdateModal() {
+  updateModal.classList.add('hidden');
+}
+
+// Check for updates
+async function checkForUpdates(interactive = true) {
+  if (interactive) {
+    openUpdateModal();
+    showUpdateState('checking');
+  }
+
+  try {
+    const result = await safeInvoke('check_for_updates');
+    if (!result) {
+      if (interactive) {
+        showUpdateState('error', 'Gagal memanggil fungsi updater.');
+      }
+      return;
+    }
+
+    if (result.should_update && result.version) {
+      updateCurrentVerText.textContent = 'Saat ini: v' + (result.current_version || '0.2.0');
+      updateNewVerText.textContent = 'Terbaru: v' + result.version;
+      updateNotesContent.textContent = result.body || 'Pembaruan aplikasi versi baru tersedia.';
+      showUpdateState('available');
+
+      if (!interactive) {
+        showToast(`Versi baru v${result.version} tersedia! Buka Setting untuk memperbarui.`);
+      }
+    } else {
+      if (interactive) {
+        currentVersionUpToDate.textContent = `Versi saat ini: v${result.current_version || '0.2.0'}`;
+        showUpdateState('uptodate');
+      }
+    }
+  } catch (err) {
+    console.error('Check update error:', err);
+    if (interactive) {
+      showUpdateState('error', typeof err === 'string' ? err : 'Gagal terhubung ke server pembaruan.');
+    }
+  }
+}
+
+// Download progress listener
+listenTauriEvent('update-download-progress', (event) => {
+  const payload = event.payload;
+  if (!payload) return;
+  downloadedBytes += payload.chunk_length || 0;
+  if (payload.content_length) {
+    totalBytes = payload.content_length;
+  }
+  let percent = 0;
+  if (totalBytes > 0) {
+    percent = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100));
+  }
+  updateProgressBarFill.style.width = percent + '%';
+  updateProgressPercentText.textContent = percent + '%';
+  const dlMB = (downloadedBytes / (1024 * 1024)).toFixed(1);
+  const totalMB = totalBytes > 0 ? (totalBytes / (1024 * 1024)).toFixed(1) : '?';
+  updateProgressBytesText.textContent = `${dlMB} MB / ${totalMB} MB`;
+});
+
+// Install Update Trigger
+startInstallUpdateBtn.addEventListener('click', async () => {
+  startInstallUpdateBtn.disabled = true;
+  startInstallUpdateText.textContent = 'Mengunduh...';
+  updateProgressSection.classList.remove('hidden');
+  updateProgressBarFill.style.width = '0%';
+  updateProgressPercentText.textContent = '0%';
+  updateProgressBytesText.textContent = '0 MB / 0 MB';
+  downloadedBytes = 0;
+  totalBytes = 0;
+
+  try {
+    await safeInvoke('install_update');
+    updateProgressStatusText.textContent = 'Pembaruan selesai! Menyiapkan restart...';
+    showToast('Pembaruan selesai dipasang. Aplikasi akan me-restart...');
+  } catch (err) {
+    console.error('Install update failed:', err);
+    showToast(`Gagal memasang update: ${err}`);
+    startInstallUpdateBtn.disabled = false;
+    startInstallUpdateText.textContent = 'Coba Lagi';
+  }
+});
+
+closeUpdateModalBtn.addEventListener('click', closeUpdateModal);
+cancelUpdateBtn.addEventListener('click', closeUpdateModal);
+if (openCheckUpdateBtn) {
+  openCheckUpdateBtn.addEventListener('click', () => {
+    closeSettingsModal();
+    checkForUpdates(true);
+  });
+}
+
+listenTauriEvent('open-updater-check', () => {
+  closeSettingsModal();
+  checkForUpdates(true);
+});
+
+// Close modals when clicking outside modal-card
 settingsModal.addEventListener('click', (e) => {
   if (e.target === settingsModal) {
     closeSettingsModal();
   }
 });
 
+updateModal.addEventListener('click', (e) => {
+  if (e.target === updateModal) {
+    closeUpdateModal();
+  }
+});
+
 // Keyboard Shortcuts: Esc or F11 or Ctrl+S
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (!settingsModal.classList.contains('hidden')) {
+    if (!updateModal.classList.contains('hidden')) {
+      closeUpdateModal();
+    } else if (!settingsModal.classList.contains('hidden')) {
       closeSettingsModal();
     } else {
       safeInvoke('exit_fullscreen');
@@ -580,6 +741,16 @@ document.addEventListener('keydown', (e) => {
 async function init() {
   await loadSavedConfig();
   await refreshMonitorsList();
+
+  // Load and display version
+  try {
+    const ver = await safeInvoke('get_app_version');
+    if (ver && currentVersionLabel) {
+      currentVersionLabel.textContent = `Kiosk Desktop Viewer v${ver}`;
+    }
+  } catch (err) {
+    console.warn('Failed to get app version:', err);
+  }
 
   const launchedViaShortcut = await handleCliArgumentsOnStartup();
 
@@ -599,6 +770,11 @@ async function init() {
       openSettingsModal();
     }
   }
+
+  // Check update silently in background after 3.5 seconds
+  setTimeout(() => {
+    checkForUpdates(false);
+  }, 3500);
 }
 
 if (document.readyState === 'loading') {

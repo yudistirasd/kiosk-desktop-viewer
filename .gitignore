@@ -10,6 +10,12 @@ src-tauri/gen/
 log.txt
 scratch_log.txt
 create_icons.js
+*.backup
+mock-installer.*
+
+# Tauri Updater Keys
+*.key
+src-tauri/updater.key
 
 # OS & IDE files
 .vscode/

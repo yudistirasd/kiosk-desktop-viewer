@@ -26,12 +26,23 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["msi"],
+    "targets": [
+      "msi"
+    ],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVCMkM4NjA0ODMyREVEQ0EKUldUSzdTMkRCSVlzNjdmQ3ZDeDQrSkJTVllQQW5ZQlBWaFRrOUYwQnNpWkk5N1BSZXdvWXBSLzcK",
+      "endpoints": [
+        "https://github.com/yudistirasd/kiosk-desktop-viewer/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

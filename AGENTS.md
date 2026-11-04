@@ -90,3 +90,18 @@ opt-level = 1
      args: --target x86_64-pc-windows-msvc --bundles msi
    ```
 3. **Caching**: Menggunakan `swatinem/rust-cache@v2` dan `cache: 'pnpm'` pada Node.js 24 untuk menghemat waktu kompilasi rilis di cloud.
+4. **Updater Signing Keys**: `tauri-action` membaca `TAURI_SIGNING_PRIVATE_KEY` dan `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` dari GitHub Repository Secrets untuk menandatangani bundel installer dan meng-generate file `latest.json` secara otomatis.
+
+---
+
+## 🔄 6. Arsitektur In-App Auto Updater (Tauri v2)
+
+1. **Plugin Updater**: Menggunakan plugin `tauri-plugin-updater = "2"`.
+2. **Kriptografi & Verifikasi**:
+   - Private key (`src-tauri/updater.key`) diabaikan oleh `.gitignore` dan wajib dimasukkan ke GitHub Secrets (`TAURI_SIGNING_PRIVATE_KEY`).
+   - Public key dikonfigurasi di `tauri.conf.json` pada `plugins.updater.pubkey`.
+   - Endpoint updater mengarah ke GitHub Release: `https://github.com/yudistirasd/kiosk-desktop-viewer/releases/latest/download/latest.json`.
+3. **UI & User Experience**:
+   - Tersedia menu **Setting &rarr; Periksa Pembaruan...** pada window menu serta tombol periksa pembaruan di modal Setting.
+   - Pengecekan otomatis berjalan tanpa memblokir startup (background check setelah 3.5 detik).
+   - Dialog pembaruan interaktif dilengkapi badge versi saat ini vs terbaru, catatan rilis (*release notes*), serta progress bar unduhan *real-time*.

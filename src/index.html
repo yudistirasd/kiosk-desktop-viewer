@@ -146,6 +146,12 @@
             <li><strong>Shortcut Keyboard:</strong> Tekan <kbd>Ctrl+S</kbd> untuk buka Setting, <kbd>Esc</kbd> untuk keluar Fullscreen.</li>
           </ul>
         </div>
+
+        <!-- App Version & Updater Bar -->
+        <div class="settings-version-bar margin-top-sm">
+          <span id="currentVersionLabel">Kiosk Desktop Viewer</span>
+          <button id="openCheckUpdateBtn" class="btn-text-link" type="button">Periksa Pembaruan...</button>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -155,6 +161,95 @@
             <polyline points="9 18 15 12 9 6"></polyline>
           </svg>
           <span id="saveBtnText">Simpan & Tampilkan</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update Modal Dialog -->
+  <div id="updateModal" class="modal-overlay hidden">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="brand-icon update-brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </div>
+          <h3 id="updateModalTitle">Pembaruan Aplikasi</h3>
+        </div>
+        <button id="closeUpdateModalBtn" class="close-btn" title="Tutup Modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Checking State -->
+        <div id="updateCheckingBox" class="update-status-box">
+          <div class="spinner spinner-sm"></div>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Sedang memeriksa ketersediaan pembaruan...</p>
+        </div>
+
+        <!-- Up-to-date State -->
+        <div id="updateUpToDateBox" class="update-status-box hidden">
+          <div class="update-check-success-icon">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <h4 style="font-size: 0.95rem; margin-top: 4px;">Aplikasi Sudah Menggunakan Versi Terbaru</h4>
+          <p id="currentVersionUpToDate" class="setting-desc">Versi saat ini: v0.2.0</p>
+        </div>
+
+        <!-- Available Update State -->
+        <div id="updateAvailableBox" class="update-available-section hidden">
+          <div class="version-badges-row">
+            <span class="badge-ver badge-ver-current" id="updateCurrentVerText">v0.2.0</span>
+            <span class="version-arrow">&rarr;</span>
+            <span class="badge-ver badge-ver-new" id="updateNewVerText">v0.3.0</span>
+          </div>
+
+          <div class="release-notes-box margin-top-sm">
+            <div class="notes-header">Catatan Rilis:</div>
+            <div id="updateNotesContent" class="notes-content">Tidak ada catatan rilis.</div>
+          </div>
+
+          <!-- Progress Bar (Shown during download) -->
+          <div id="updateProgressSection" class="update-progress-container margin-top-sm hidden">
+            <div class="progress-info-row">
+              <span id="updateProgressStatusText">Mengunduh installer...</span>
+              <span id="updateProgressPercentText">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div id="updateProgressBarFill" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <div id="updateProgressBytesText" class="progress-bytes-text">0 MB / 0 MB</div>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="updateErrorBox" class="update-status-box hidden">
+          <div class="update-error-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <p id="updateErrorText" style="font-size: 0.85rem; color: #fca5a5;">Gagal memeriksa pembaruan.</p>
+        </div>
+      </div>
+
+      <div class="modal-footer" id="updateModalFooter">
+        <button id="cancelUpdateBtn" class="btn btn-secondary" type="button">Tutup</button>
+        <button id="startInstallUpdateBtn" class="btn btn-primary hidden" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span id="startInstallUpdateText">Unduh & Pasang Sekarang</span>
         </button>
       </div>
     </div>
