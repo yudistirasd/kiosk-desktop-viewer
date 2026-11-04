@@ -1,6 +1,6 @@
 [package]
 name = "kiosk-desktop-viewer"
-version = "0.2.0"
+version = "0.2.1"
 description = "Tauri Kiosk Desktop Viewer"
 authors = ["Yudistira"]
 edition = "2021"
