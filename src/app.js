@@ -25,16 +25,28 @@ async function safeInvoke(cmd, args = {}) {
 
 // DOM Elements
 const settingsModal = document.getElementById('settingsModal');
+const modalTitle = document.getElementById('modalTitle');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const landingOpenSettingsBtn = document.getElementById('landingOpenSettingsBtn');
+const shortcutNoticeBanner = document.getElementById('shortcutNoticeBanner');
+const modeSwitcherGroup = document.getElementById('modeSwitcherGroup');
 const modeDefaultBtn = document.getElementById('modeDefaultBtn');
 const modeMultiBtn = document.getElementById('modeMultiBtn');
 const multiProfileSection = document.getElementById('multiProfileSection');
+const profileSelectGroup = document.getElementById('profileSelectGroup');
 const profileSelect = document.getElementById('profileSelect');
 const deleteProfileBtn = document.getElementById('deleteProfileBtn');
+const profileNameGroup = document.getElementById('profileNameGroup');
+const profileLockedBadge = document.getElementById('profileLockedBadge');
+const profileNameNotice = document.getElementById('profileNameNotice');
 const profileNameInput = document.getElementById('profileNameInput');
 const urlInput = document.getElementById('urlInput');
+const autoMonitorToggle = document.getElementById('autoMonitorToggle');
+const monitorSelectSection = document.getElementById('monitorSelectSection');
+const autoMonitorSelect = document.getElementById('autoMonitorSelect');
 const saveAndLoadBtn = document.getElementById('saveAndLoadBtn');
+const saveBtnIcon = document.getElementById('saveBtnIcon');
+const saveBtnSpinner = document.getElementById('saveBtnSpinner');
 const saveBtnText = document.getElementById('saveBtnText');
 const viewerFrame = document.getElementById('viewerFrame');
 const blankLanding = document.getElementById('blankLanding');
@@ -42,8 +54,12 @@ const toast = document.getElementById('toast');
 
 let state = {
   profile_mode: 'default', // 'default' | 'multi'
+  is_shortcut_session: false,
+  shortcut_profile_name: '',
+  shortcut_profile_id: '',
   last_url: '',
   last_monitor_index: 0,
+  auto_monitor: false,
   active_profile_id: '',
   profiles: [],
   monitors: []
@@ -68,27 +84,118 @@ function formatUrl(rawUrl) {
   return url;
 }
 
+// Refresh Monitors from Rust Tauri Backend
+async function refreshMonitorsList() {
+  try {
+    const list = await safeInvoke('get_monitors');
+    if (Array.isArray(list) && list.length > 0) {
+      state.monitors = list;
+    } else {
+      state.monitors = [{ index: 0, name: 'Display 1', width: 1920, height: 1080, is_primary: true }];
+    }
+  } catch (err) {
+    console.error('Failed to get monitors:', err);
+    state.monitors = [{ index: 0, name: 'Display 1', width: 1920, height: 1080, is_primary: true }];
+  }
+
+  // Populate autoMonitorSelect options
+  const currentVal = parseInt(autoMonitorSelect.value, 10);
+  autoMonitorSelect.innerHTML = '';
+  state.monitors.forEach((m) => {
+    const opt = document.createElement('option');
+    opt.value = m.index;
+    const type = m.is_primary ? 'Layar Utama' : 'Layar Sekunder';
+    opt.textContent = `Screen ${m.index + 1} (${type}) - ${m.width}x${m.height} px`;
+    autoMonitorSelect.appendChild(opt);
+  });
+
+  if (!isNaN(currentVal) && state.monitors.some((m) => m.index === currentVal)) {
+    autoMonitorSelect.value = currentVal;
+  }
+}
+
 // Switch Mode (Default vs Multi)
 function setProfileMode(mode) {
   state.profile_mode = mode;
+  if (state.is_shortcut_session) {
+    // In shortcut session, keep profile mode locked to active profile
+    return;
+  }
+
   if (mode === 'default') {
     modeDefaultBtn.classList.add('active');
     modeMultiBtn.classList.remove('active');
     multiProfileSection.classList.add('hidden');
     saveBtnText.textContent = 'Simpan & Tampilkan';
+    modalTitle.textContent = 'Setting Kiosk Webview';
+    autoMonitorToggle.checked = !!state.auto_monitor;
+    if (state.auto_monitor) {
+      monitorSelectSection.classList.remove('hidden');
+      autoMonitorSelect.value = state.last_monitor_index || 0;
+    } else {
+      monitorSelectSection.classList.add('hidden');
+    }
   } else {
     modeMultiBtn.classList.add('active');
     modeDefaultBtn.classList.remove('active');
     multiProfileSection.classList.remove('hidden');
     saveBtnText.textContent = 'Simpan & Buat Shortcut Desktop';
+    modalTitle.textContent = 'Setting Kiosk Multi Profile';
     renderProfileDropdown();
   }
 }
 
 // Modal Control
-function openSettingsModal() {
+async function openSettingsModal() {
+  await refreshMonitorsList();
+
+  if (state.is_shortcut_session) {
+    // Active Profile mode via Shortcut
+    modalTitle.textContent = `Setting Profile [${state.shortcut_profile_name}]`;
+    shortcutNoticeBanner.classList.remove('hidden');
+    modeSwitcherGroup.classList.add('hidden');
+    multiProfileSection.classList.remove('hidden');
+    profileSelectGroup.classList.add('hidden');
+
+    profileNameInput.value = state.shortcut_profile_name;
+    profileNameInput.disabled = true;
+    profileLockedBadge.classList.remove('hidden');
+    profileNameNotice.classList.remove('hidden');
+
+    const prof = state.profiles.find((p) => p.id === state.shortcut_profile_id);
+    if (prof) {
+      urlInput.value = prof.url || '';
+      autoMonitorToggle.checked = !!prof.auto_monitor;
+      if (prof.monitor_index !== undefined) {
+        autoMonitorSelect.value = prof.monitor_index;
+      }
+    } else {
+      urlInput.value = state.last_url || '';
+    }
+
+    if (autoMonitorToggle.checked) {
+      monitorSelectSection.classList.remove('hidden');
+    } else {
+      monitorSelectSection.classList.add('hidden');
+    }
+
+    saveBtnText.textContent = 'Simpan Pengaturan Profil';
+    settingsModal.classList.remove('hidden');
+    urlInput.focus();
+    return;
+  }
+
+  // Normal mode (non-shortcut)
+  shortcutNoticeBanner.classList.add('hidden');
+  modeSwitcherGroup.classList.remove('hidden');
+  profileSelectGroup.classList.remove('hidden');
+  profileNameInput.disabled = false;
+  profileLockedBadge.classList.add('hidden');
+  profileNameNotice.classList.add('hidden');
+
   setProfileMode(state.profile_mode || 'default');
   settingsModal.classList.remove('hidden');
+
   if (state.profile_mode === 'multi') {
     profileNameInput.focus();
   } else {
@@ -103,7 +210,7 @@ function closeSettingsModal() {
 // Render Profiles in Dropdown
 function renderProfileDropdown() {
   profileSelect.innerHTML = '<option value="new">+ Tambah Profil Baru</option>';
-  
+
   state.profiles.forEach((p) => {
     const opt = document.createElement('option');
     opt.value = p.id;
@@ -123,12 +230,23 @@ function handleProfileSelectChange() {
   if (selectedId === 'new') {
     profileNameInput.value = '';
     urlInput.value = state.last_url || '';
+    autoMonitorToggle.checked = false;
+    monitorSelectSection.classList.add('hidden');
     deleteProfileBtn.classList.add('hidden');
   } else {
     const prof = state.profiles.find((p) => p.id === selectedId);
     if (prof) {
       profileNameInput.value = prof.name;
       urlInput.value = prof.url;
+      autoMonitorToggle.checked = !!prof.auto_monitor;
+      if (prof.monitor_index !== undefined) {
+        autoMonitorSelect.value = prof.monitor_index;
+      }
+      if (prof.auto_monitor) {
+        monitorSelectSection.classList.remove('hidden');
+      } else {
+        monitorSelectSection.classList.add('hidden');
+      }
       deleteProfileBtn.classList.remove('hidden');
     }
   }
@@ -144,6 +262,32 @@ function saveCurrentProfile() {
     return null;
   }
 
+  const isAutoMonitor = autoMonitorToggle.checked;
+  const chosenMonitorIndex = parseInt(autoMonitorSelect.value, 10) || 0;
+
+  // Case 1: Active Shortcut Profile session
+  if (state.is_shortcut_session) {
+    const prof = state.profiles.find((p) => p.id === state.shortcut_profile_id);
+    if (prof) {
+      prof.url = formattedUrl;
+      prof.auto_monitor = isAutoMonitor;
+      prof.monitor_index = chosenMonitorIndex;
+    }
+    state.last_url = formattedUrl;
+    if (isAutoMonitor) {
+      state.last_monitor_index = chosenMonitorIndex;
+      safeInvoke('move_to_monitor', { monitorIndex: chosenMonitorIndex });
+    }
+    saveConfig();
+    return {
+      id: state.shortcut_profile_id,
+      name: state.shortcut_profile_name,
+      url: formattedUrl,
+      isShortcut: true
+    };
+  }
+
+  // Case 2: Multi Profile mode (non-shortcut)
   if (state.profile_mode === 'multi') {
     const name = profileNameInput.value.trim() || 'Display Kiosk';
     let selectedId = profileSelect.value;
@@ -154,7 +298,8 @@ function saveCurrentProfile() {
         id: selectedId,
         name: name,
         url: formattedUrl,
-        monitor_index: state.last_monitor_index
+        monitor_index: chosenMonitorIndex,
+        auto_monitor: isAutoMonitor
       };
       state.profiles.push(newProfile);
     } else {
@@ -162,21 +307,31 @@ function saveCurrentProfile() {
       if (prof) {
         prof.name = name;
         prof.url = formattedUrl;
-        prof.monitor_index = state.last_monitor_index;
+        prof.monitor_index = chosenMonitorIndex;
+        prof.auto_monitor = isAutoMonitor;
       }
     }
 
     state.active_profile_id = selectedId;
     state.last_url = formattedUrl;
+    if (isAutoMonitor) {
+      state.last_monitor_index = chosenMonitorIndex;
+      safeInvoke('move_to_monitor', { monitorIndex: chosenMonitorIndex });
+    }
     saveConfig();
     renderProfileDropdown();
 
-    return { id: selectedId, name: name, url: formattedUrl };
+    return { id: selectedId, name: name, url: formattedUrl, isShortcut: false };
   } else {
-    // Default mode
+    // Case 3: Default mode
     state.last_url = formattedUrl;
+    state.auto_monitor = isAutoMonitor;
+    state.last_monitor_index = chosenMonitorIndex;
+    if (isAutoMonitor) {
+      safeInvoke('move_to_monitor', { monitorIndex: chosenMonitorIndex });
+    }
     saveConfig();
-    return { id: 'default', name: 'Default', url: formattedUrl };
+    return { id: 'default', name: 'Default', url: formattedUrl, isShortcut: false };
   }
 }
 
@@ -201,6 +356,7 @@ async function saveConfig() {
       profile_mode: state.profile_mode,
       last_url: state.last_url,
       last_monitor_index: state.last_monitor_index,
+      auto_monitor: state.auto_monitor,
       active_profile_id: state.active_profile_id,
       profiles: state.profiles,
       always_show_toolbar: false,
@@ -221,6 +377,7 @@ async function loadSavedConfig() {
       state.profile_mode = config.profile_mode || 'default';
       state.last_url = config.last_url || '';
       state.last_monitor_index = config.last_monitor_index || 0;
+      state.auto_monitor = typeof config.auto_monitor === 'boolean' ? config.auto_monitor : false;
       state.active_profile_id = config.active_profile_id || '';
       state.profiles = config.profiles || [];
     }
@@ -240,7 +397,7 @@ function loadUrlIntoFrame(rawUrl, showToastMsg = false) {
   urlInput.value = formattedUrl;
   viewerFrame.src = formattedUrl;
   blankLanding.classList.add('hidden');
-  
+
   state.last_url = formattedUrl;
   saveConfig();
 
@@ -259,14 +416,24 @@ async function handleCliArgumentsOnStartup() {
           (p) => p.id === args.profile || p.name.toLowerCase() === args.profile.toLowerCase()
         );
         if (prof) {
+          state.is_shortcut_session = true;
+          state.shortcut_profile_id = prof.id;
+          state.shortcut_profile_name = prof.name;
           state.active_profile_id = prof.id;
           state.last_url = prof.url;
-          if (prof.monitor_index !== undefined) {
-            state.last_monitor_index = prof.monitor_index;
-            await safeInvoke('move_to_monitor', { monitorIndex: prof.monitor_index });
+
+          // Update Window Menu title
+          await safeInvoke('update_menu_profile_name', { profileName: prof.name });
+
+          // Auto move to monitor if enabled for this profile
+          if (prof.auto_monitor) {
+            const targetMonitor = prof.monitor_index !== undefined ? prof.monitor_index : 0;
+            state.last_monitor_index = targetMonitor;
+            await safeInvoke('move_to_monitor', { monitorIndex: targetMonitor });
           }
+
           loadUrlIntoFrame(prof.url);
-          showToast(`Mode Kiosk: Profil "${prof.name}" diaktifkan`);
+          showToast(`Mode Kiosk: Profil "${prof.name}" aktif`);
           return true;
         }
       }
@@ -301,6 +468,7 @@ listenTauriEvent('open-settings', () => openSettingsModal());
 listenTauriEvent('display-changed', (event) => {
   const index = typeof event.payload === 'number' ? event.payload : 0;
   state.last_monitor_index = index;
+  autoMonitorSelect.value = index;
   saveConfig();
   showToast(`Window dipindahkan ke Display Screen [${index + 1}]`);
 });
@@ -313,26 +481,68 @@ closeSettingsBtn.addEventListener('click', closeSettingsModal);
 profileSelect.addEventListener('change', handleProfileSelectChange);
 deleteProfileBtn.addEventListener('click', deleteCurrentProfile);
 
+autoMonitorToggle.addEventListener('change', () => {
+  if (autoMonitorToggle.checked) {
+    monitorSelectSection.classList.remove('hidden');
+  } else {
+    monitorSelectSection.classList.add('hidden');
+  }
+});
+
+// Notification on clicking locked profile input
+profileNameGroup.addEventListener('click', (e) => {
+  if (state.is_shortcut_session) {
+    showToast(`Nama profil "${state.shortcut_profile_name}" terkunci mengikuti shortcut desktop`);
+  }
+});
+
+// Helper for Save Button Loading State
+function setSaveButtonLoading(isLoading, customText = 'Membuat Shortcut Desktop...') {
+  if (isLoading) {
+    saveAndLoadBtn.disabled = true;
+    if (saveBtnIcon) saveBtnIcon.classList.add('hidden');
+    if (saveBtnSpinner) saveBtnSpinner.classList.remove('hidden');
+    saveBtnText.textContent = customText;
+  } else {
+    saveAndLoadBtn.disabled = false;
+    if (saveBtnSpinner) saveBtnSpinner.classList.add('hidden');
+    if (saveBtnIcon) saveBtnIcon.classList.remove('hidden');
+    if (state.is_shortcut_session) {
+      saveBtnText.textContent = 'Simpan Pengaturan Profil';
+    } else if (state.profile_mode === 'multi') {
+      saveBtnText.textContent = 'Simpan & Buat Shortcut Desktop';
+    } else {
+      saveBtnText.textContent = 'Simpan & Tampilkan';
+    }
+  }
+}
+
 saveAndLoadBtn.addEventListener('click', async () => {
   const prof = saveCurrentProfile();
-  if (prof) {
-    loadUrlIntoFrame(prof.url, false);
-    
-    if (state.profile_mode === 'multi') {
-      try {
-        const result = await safeInvoke('create_desktop_shortcut', {
-          name: prof.name,
-          profileId: prof.id
-        });
-        showToast(result || `Profil "${prof.name}" disimpan, URL dimuat & Shortcut dibuat!`);
-      } catch (err) {
-        console.error('Error creating shortcut:', err);
-        showToast(`Profil "${prof.name}" disimpan & URL dimuat (Gagal buat shortcut: ${err})`);
-      }
-    } else {
-      showToast('URL berhasil disimpan & dimuat');
-    }
+  if (!prof) return;
 
+  loadUrlIntoFrame(prof.url, false);
+
+  if (prof.isShortcut) {
+    showToast(`Pengaturan profil "${prof.name}" berhasil disimpan!`);
+    closeSettingsModal();
+  } else if (state.profile_mode === 'multi') {
+    setSaveButtonLoading(true, 'Membuat Shortcut Desktop...');
+    try {
+      const result = await safeInvoke('create_desktop_shortcut', {
+        name: prof.name,
+        profileId: prof.id
+      });
+      showToast(result || `Profil "${prof.name}" disimpan & Shortcut dibuat!`);
+    } catch (err) {
+      console.error('Error creating shortcut:', err);
+      showToast(`Profil "${prof.name}" disimpan (Gagal buat shortcut: ${err})`);
+    } finally {
+      setSaveButtonLoading(false);
+      closeSettingsModal();
+    }
+  } else {
+    showToast('Pengaturan URL & Monitor berhasil disimpan!');
     closeSettingsModal();
   }
 });
@@ -369,9 +579,20 @@ document.addEventListener('keydown', (e) => {
 // Initialization
 async function init() {
   await loadSavedConfig();
+  await refreshMonitorsList();
+
   const launchedViaShortcut = await handleCliArgumentsOnStartup();
-  
+
   if (!launchedViaShortcut) {
+    // Mode Default auto monitor check on startup
+    if (state.auto_monitor && state.last_monitor_index !== undefined) {
+      try {
+        await safeInvoke('move_to_monitor', { monitorIndex: state.last_monitor_index });
+      } catch (err) {
+        console.warn('Gagal otomatis pindah monitor saat startup:', err);
+      }
+    }
+
     if (state.last_url) {
       loadUrlIntoFrame(state.last_url);
     } else {

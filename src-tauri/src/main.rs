@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
-use tauri::menu::{IconMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{IconMenuItemBuilder, MenuBuilder, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position};
 use tauri_plugin_store::StoreExt;
 
@@ -35,6 +35,7 @@ pub struct KioskProfile {
     pub name: String,
     pub url: String,
     pub monitor_index: usize,
+    pub auto_monitor: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +47,7 @@ pub struct ConfigStruct {
     pub always_show_toolbar: Option<bool>,
     pub window_position: Option<PositionPayload>,
     pub window_size: Option<SizePayload>,
+    pub auto_monitor: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -242,6 +244,28 @@ fn load_config(app: AppHandle) -> Result<Option<ConfigStruct>, String> {
     }
 }
 
+#[tauri::command]
+fn update_menu_profile_name(app: AppHandle, profile_name: Option<String>) -> Result<(), String> {
+    if let Some(menu) = app.menu() {
+        if let Some(item) = menu.get("setting_url") {
+            let title = match profile_name {
+                Some(name) if !name.trim().is_empty() => format!("Setting Profile [{}]", name.trim()),
+                _ => "Setting URL & Profil...".to_string(),
+            };
+            match item {
+                MenuItemKind::MenuItem(m) => {
+                    let _ = m.set_text(title);
+                }
+                MenuItemKind::Icon(m) => {
+                    let _ = m.set_text(title);
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     // Bypass WebView2 SSL Certificate Errors for Self-Signed HTTPS IP Addresses
     std::env::set_var(
@@ -252,12 +276,38 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
+            let args: Vec<String> = std::env::args().collect();
+            let mut shortcut_profile_id = None;
+            let mut i = 1;
+            while i < args.len() {
+                if args[i] == "--profile" && i + 1 < args.len() {
+                    shortcut_profile_id = Some(args[i + 1].clone());
+                    break;
+                }
+                i += 1;
+            }
+
+            let mut initial_setting_title = "Setting URL & Profil...".to_string();
+            if let Some(prof_id) = shortcut_profile_id {
+                if let Ok(store) = app.store("config.json") {
+                    if let Some(val) = store.get("config") {
+                        if let Ok(cfg) = serde_json::from_value::<ConfigStruct>(val) {
+                            if let Some(profiles) = cfg.profiles {
+                                if let Some(p) = profiles.into_iter().find(|p| p.id == prof_id || p.name.to_lowercase() == prof_id.to_lowercase()) {
+                                    initial_setting_title = format!("Setting Profile [{}]", p.name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             let quit = MenuItemBuilder::with_id("quit", "Keluar Aplikasi")
                 .accelerator("Ctrl+Q")
                 .build(app)?;
 
             let menu_setting = if let Some(icon) = app.default_window_icon() {
-                let setting_url = IconMenuItemBuilder::with_id("setting_url", "Setting URL & Profil...")
+                let setting_url = IconMenuItemBuilder::with_id("setting_url", &initial_setting_title)
                     .accelerator("Ctrl+S")
                     .icon(icon.clone())
                     .build(app)?;
@@ -267,7 +317,7 @@ fn main() {
                     .item(&quit)
                     .build()?
             } else {
-                let setting_url = MenuItemBuilder::with_id("setting_url", "Setting URL & Profil...")
+                let setting_url = MenuItemBuilder::with_id("setting_url", &initial_setting_title)
                     .accelerator("Ctrl+S")
                     .build(app)?;
                 SubmenuBuilder::new(app, "Setting")
@@ -349,7 +399,8 @@ fn main() {
             save_config,
             load_config,
             get_cli_args,
-            create_desktop_shortcut
+            create_desktop_shortcut,
+            update_menu_profile_name
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
